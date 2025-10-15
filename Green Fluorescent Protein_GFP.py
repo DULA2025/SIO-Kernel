@@ -40,9 +40,9 @@ modulation_matrix = np.exp(-mj_matrix)
 # Amino acid order for MJ matrix
 aa_order = "ARNDCQEGHILKMFPSTWYV"
 
-# Kernel parameters (adjusted for longer sequence)
+# Kernel parameters
 ALPHA = 0.2526
-DELTA = 1/3.6  # Retained for alpha-helical periodicity in GFP
+DELTA = 1/3.6  # Adjusted for alpha-helical periodicity
 THETA = 1/6
 SIGMA_G = np.log(n) / np.sqrt(2 * DELTA)  # Scaled for 238 residues
 SIGMA_C = np.log(n)
@@ -63,12 +63,25 @@ def hybrid_kernel(diff, aa_i, aa_j):
 
 # --- 2. SIO EMBEDDING CALCULATION ---
 
-# Build kernel matrix and perform eigenvalue decomposition
-K = np.zeros((n, n))
-for i in range(n):
-    for j in range(n):
-        diff = abs(i - j)
-        K[i, j] = hybrid_kernel(diff, sequence[i], sequence[j])
+# Vectorized kernel matrix construction
+aa_indices = np.array([aa_order.index(aa) for aa in sequence])
+i, j = np.meshgrid(range(n), range(n), indexing='ij')
+diff = np.abs(i - j)
+mask = diff == 0
+
+decay_g = np.exp(-diff**2 / (2 * SIGMA_G**2))
+decay_c = 1.0 / (1.0 + (diff / SIGMA_C)**2)
+decay = (1.0 - ALPHA) * decay_g + ALPHA * decay_c
+
+oscillation = np.cos(2 * np.pi * DELTA * diff + THETA)
+projection = 1.0 + np.sin(2 * np.pi * diff / 6.0)
+
+aa_i = aa_indices[i]
+aa_j = aa_indices[j]
+modulation = modulation_matrix[aa_i, aa_j]
+
+K = decay * oscillation * projection * modulation
+K[mask] = 1.0  # Set diagonal to 1.0
 
 eigvals, eigvecs = np.linalg.eigh(K)
 positive_idx = eigvals > 1e-9
@@ -166,9 +179,9 @@ fig = plt.figure(figsize=(14, 6))
 ax1 = fig.add_subplot(121, projection='3d')
 ax1.plot(embedded[:, 0], embedded[:, 1], embedded[:, 2], '-k', linewidth=1, alpha=0.5)
 for i, pos in enumerate(embedded):
-    # Color based on Kyte-Doolittle hydrophobicity index (simplified)
-    hydrophobicity = {'M': 1.9, 'S': -0.8, 'K': -1.5, 'G': -0.4, 'E': -0.7, 'L': 3.8, 'F': 2.8, 'T': -0.7, 
-                      'V': 4.2, 'I': 4.5, 'P': -1.6, 'D': -0.9, 'Y': -1.3, 'H': -0.5, 'Q': -0.2, 
+    # Color based on Kyte-Doolittle hydrophobicity index
+    hydrophobicity = {'M': 1.9, 'S': -0.8, 'K': -1.5, 'G': -0.4, 'E': -0.7, 'L': 3.8, 'F': 2.8, 'T': -0.7,
+                      'V': 4.2, 'I': 4.5, 'P': -1.6, 'D': -0.9, 'Y': -1.3, 'H': -0.5, 'Q': -0.2,
                       'N': -0.2, 'A': 1.8, 'W': -0.9, 'R': -0.9, 'C': 2.5}
     color = 'blue' if hydrophobicity[sequence[i]] > 0 else 'red'
     ax1.scatter(pos[0], pos[1], pos[2], c=color, s=50, edgecolors='black', zorder=5)
