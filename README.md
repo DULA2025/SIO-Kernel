@@ -13,7 +13,3 @@ Key features include:
 - A hybrid kernel incorporating Gaussian and Cauchy decay terms, oscillatory periodicity, mod 6 projection for backbone symmetry, and a 20x20 modulation matrix based on Miyazawa-Jernigan contact potentials.
 - Integration with RDKit for all-atom structure generation and constrained energy minimization.
 - Hybrid compatibility with AlphaFold for refinement.
-
-### Protein Folding Hierarchy
-<image-card alt="Protein Structure Hierarchy" src="protein_hierarchy.png" ></image-card>
-*(Diagram illustrating primary to quaternary protein structures, as referenced in the methodology.)*
