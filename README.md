@@ -17,7 +17,3 @@ Key features include:
 ### Protein Folding Hierarchy
 <image-card alt="Protein Structure Hierarchy" src="protein_hierarchy.png" ></image-card>
 *(Diagram illustrating primary to quaternary protein structures, as referenced in the methodology.)*
-
-## Installation
-
-1. Clone the repository:
