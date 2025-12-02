@@ -62,6 +62,7 @@ The Miyazawa-Jernigan contact potential is reinterpreted as a **Viscosity Tensor
 conda create -n sio-fold python=3.11
 conda activate sio-fold
 conda install -c conda-forge openmm rdkit numpy scipy pytorch
+```
 
 **Copyright (c) <2025> <DULA>
 
