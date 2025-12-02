@@ -1,4 +1,4 @@
-# THEORY.md: The DULA Vacuum Framework
+# The DULA Vacuum Framework
 
 **The Mathematical Resolution of Levinthal's Paradox via Prime Number Topology and Fluid Dynamics.**
 
