@@ -6,8 +6,7 @@
 [![Status](https://img.shields.io/badge/Status-OPERATIONAL-brightgreen)]()
 [![Physics](https://img.shields.io/badge/Physics-OpenMM%2F%20AMBER-blue)]()
 [![Method](https://img.shields.io/badge/Method-Zero%20Shot%20%2F%20No%20MSA-red)]()
-[<image-card alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" ></image-card>](https://opensource.org/licenses/MIT)
-[<image-card alt="Python Version" src="https://img.shields.io/badge/python-3.8%2B-blue.svg" ></image-card>](https://www.python.org/downloads/)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
 ## 🌌 Overview
 
