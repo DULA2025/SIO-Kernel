@@ -1,0 +1,19 @@
+Usage
+1. Simulate "Safe" State (Blood)
+Verifies that warheads are active and the molecule does not aggregate.
+python sio_trinity.py \
+  --mode fold \
+  --ph 7.4 \
+  --output blood_state.pdb
+
+2. Simulate "Lethal" State (Tumor)
+Verifies that warheads disengage and nucleate the amyloid fibril.
+
+python sio_trinity.py \
+  --mode unfold \
+  --ph 6.5 \
+  --output tumor_state.pdb
+
+The Sequence (v1 Production Candidate)
+The default simulation uses the SIO-TRINITY-v1 155-mer, a fusion of three evolved domains separated by GGGGS linkers.
+
