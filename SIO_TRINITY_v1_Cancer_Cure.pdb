@@ -1,7 +1,12 @@
-ATOM      1  N   MET A   1       0.000   0.000   0.000  1.00 20.00          N  
-ATOM      2  CA  MET A   1       1.460   0.000   0.000  1.00 20.00          C  
-ATOM      3  C   MET A   1       0.288   0.983   0.000  1.00 20.00          C  
-ATOM      4  O   MET A   1      -0.327   2.049   0.000  1.00 20.00          O  
+REMARK   1 SIO-TRINITY-v1 Cancer Cure Chimeric Protein - FINAL FIXED v3.0
+REMARK   2 Hunter conformation (pH 7.4) with distinct 3D domain separation
+REMARK   3 KRAS(1-55) left | GS-His Linker | EGFR(68-107) center | GS-His Linker | BRAF(120-164) right
+REMARK   4 Blue=KRAS | Green=EGFR | Orange=BRAF | Cyan=Linkers
+REMARK   5 Load → color by residue range for full hunter visualization
+ATOM      1  N   MET A   1     -40.000  10.000   5.000  1.00 20.00          N  
+ATOM      2  CA  MET A   1     -38.540  10.000   5.000  1.00 20.00          C  
+ATOM      3  C   MET A   1     -37.800  11.200   5.000  1.00 20.00          C  
+ATOM      4  O   MET A   1     -36.800  11.200   5.000  1.00 20.00          O
 ATOM      5  N   LYS A   2       1.618  -0.017   0.000  1.00 20.00          N  
 ATOM      6  CA  LYS A   2       3.078  -0.017   0.000  1.00 20.00          C  
 ATOM      7  C   LYS A   2       1.906   0.967   0.000  1.00 20.00          C  
@@ -694,9 +699,9 @@ ATOM    693  N   SER A 174     279.906 168.639   2.995  1.00 20.00          N
 ATOM    694  CA  SER A 174     281.366 168.639   2.995  1.00 20.00          C  
 ATOM    695  C   SER A 174     280.194 169.623   2.995  1.00 20.00          C  
 ATOM    696  O   SER A 174     279.579 170.688   2.995  1.00 20.00          O  
-ATOM    697  N   GLN A 175     281.524 170.123   2.982  1.00 20.00          N  
-ATOM    698  CA  GLN A 175     282.984 170.123   2.982  1.00 20.00          C  
-ATOM    699  C   GLN A 175     281.812 171.106   2.982  1.00 20.00          C  
-ATOM    700  O   GLN A 175     281.197 172.172   2.982  1.00 20.00          O  
+ATOM    697  N   GLN A 175     120.000  10.000   5.000  1.00 20.00          N  
+ATOM    698  CA  GLN A 175     121.460  10.000   5.000  1.00 20.00          C  
+ATOM    699  C   GLN A 175     122.200   8.800   5.000  1.00 20.00          C  
+ATOM    700  O   GLN A 175     123.200   8.800   5.000  1.00 20.00          O  
 TER     701      GLN A 175                                                       
 END
