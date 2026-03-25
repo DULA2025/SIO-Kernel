@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIO-Fold: Analytical Suite v4.0</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', Courier, monospace; }
+        #ui-layer { position: absolute; top: 20px; left: 20px; color: #00ffff; pointer-events: none; z-index: 100; text-shadow: 0 0 5px rgba(0, 255, 255, 0.5); }
+        h1 { margin: 0 0 5px 0; font-size: 1.2rem; letter-spacing: 2px; }
+        p { margin: 0; font-size: 0.9rem; color: #ff00ff; }
+        
+        /* The God Mode Control Panel */
+        #controls { 
+            position: absolute; bottom: 30px; left: 20px; z-index: 100; 
+            background: rgba(0, 20, 20, 0.8); border: 1px solid #00ffff; 
+            padding: 15px; border-radius: 5px; color: #00ffff;
+            pointer-events: auto; box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+        .control-row { display: flex; align-items: center; margin-bottom: 10px; cursor: pointer; }
+        .control-row:last-child { margin-bottom: 0; }
+        .control-row input { margin-right: 10px; cursor: pointer; accent-color: #00ffff; width: 16px; height: 16px; }
+        .control-row label { font-size: 0.9rem; cursor: pointer; user-select: none; text-transform: uppercase; letter-spacing: 1px;}
+        
+        #drop-zone { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 255, 255, 0.1); border: 5px dashed #00ffff; box-sizing: border-box; display: flex; justify-content: center; align-items: center; color: #00ffff; font-size: 2rem; font-weight: bold; z-index: 200; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        #drop-zone.active { opacity: 1; pointer-events: auto; background: rgba(0, 255, 255, 0.2); }
+
+        /* Dynamic Atom Labels */
+        #label-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; overflow: hidden; }
+        .atom-label { 
+            position: absolute; color: #ffffff; font-size: 10px; font-weight: bold; 
+            transform: translate(-50%, -50%); text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+            display: none; /* Hidden by default */
+        }
+    </style>
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } } </script>
+</head>
+<body>
+    <div id="ui-layer">
+        <h1>SIO-FOLD ENGINE v4.0</h1>
+        <p id="status">Awaiting .pdb file... Drag and drop into browser.</p>
+        <p style="color: #aaaaaa; margin-top: 10px;" id="atom-count"></p>
+    </div>
+    
+    <div id="controls">
+        <div class="control-row">
+            <input type="checkbox" id="toggle-lattice">
+            <label for="toggle-lattice">A2 Geometric Lattice</label>
+        </div>
+        <div class="control-row">
+            <input type="checkbox" id="toggle-bonds" checked>
+            <label for="toggle-bonds">Covalent Bonds</label>
+        </div>
+        <div class="control-row">
+            <input type="checkbox" id="toggle-labels">
+            <label for="toggle-labels">Atomic Labels</label>
+        </div>
+        <div class="control-row">
+            <input type="checkbox" id="toggle-rotation" checked>
+            <label for="toggle-rotation">Auto-Rotation</label>
+        </div>
+    </div>
+
+    <div id="label-container"></div>
+    <div id="drop-zone">DROP .PDB FILE HERE</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // 1. Scene Setup
+        const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x050505, 0.003);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000); camera.position.set(0, 0, 150);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ReinhardToneMapping; renderer.toneMappingExposure = 0.8;
+        document.body.appendChild(renderer.domElement);
+        const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.05;
+
+        // Post-Processing
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.1; bloomPass.strength = 1.2; bloomPass.radius = 0.5;
+        const composer = new EffectComposer(renderer); composer.addPass(renderScene); composer.addPass(bloomPass);
+
+        // 2. Master Grouping (Preserves alignment)
+        const masterGroup = new THREE.Group(); scene.add(masterGroup);
+        const proteinGroup = new THREE.Group(); masterGroup.add(proteinGroup);
+        const latticeGroup = new THREE.Group(); masterGroup.add(latticeGroup);
+        const anchorGroup = new THREE.Group(); masterGroup.add(anchorGroup); // Holds the target line
+        
+        let atomLabelData = []; // Stores data for 3D-to-2D text projection
+
+        // 3. Generate the A2 Lattice
+        const HEX_RADIUS = 5.0; 
+        const HEX_HEIGHT = Math.sqrt(3) * HEX_RADIUS;
+
+        function createA2Lattice() {
+            const layers = 5; const gridCols = 10; const gridRows = 10;
+            const material = new THREE.LineBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending });
+            const hexGeometry = new THREE.BufferGeometry();
+            const hexVertices = [];
+            for (let i = 0; i <= 6; i++) {
+                const angle = (i * Math.PI) / 3;
+                hexVertices.push(HEX_RADIUS * Math.cos(angle), HEX_RADIUS * Math.sin(angle), 0);
+            }
+            hexGeometry.setAttribute('position', new THREE.Float32BufferAttribute(hexVertices, 3));
+
+            for (let z = -Math.floor(layers/2); z <= Math.floor(layers/2); z++) {
+                const zOffset = z * HEX_RADIUS * 2;
+                for (let row = -gridRows; row <= gridRows; row++) {
+                    for (let col = -gridCols; col <= gridCols; col++) {
+                        const xOffset = col * HEX_RADIUS * 1.5;
+                        const yOffset = row * HEX_HEIGHT + (Math.abs(col % 2) === 1 ? HEX_HEIGHT / 2 : 0);
+                        const hex = new THREE.Line(hexGeometry, material);
+                        hex.position.set(xOffset, yOffset, zOffset);
+                        latticeGroup.add(hex);
+                    }
+                }
+            }
+        }
+        createA2Lattice();
+        latticeGroup.visible = false; 
+
+        // 4. State variables for UI
+        let showLabels = false;
+        let showBonds = true;
+        let autoRotate = true;
+
+        document.getElementById('toggle-lattice').addEventListener('change', (e) => latticeGroup.visible = e.target.checked);
+        document.getElementById('toggle-bonds').addEventListener('change', (e) => {
+            showBonds = e.target.checked;
+            proteinGroup.children.forEach(child => { if (child.isLineSegments) child.visible = showBonds; });
+        });
+        document.getElementById('toggle-labels').addEventListener('change', (e) => showLabels = e.target.checked);
+        document.getElementById('toggle-rotation').addEventListener('change', (e) => autoRotate = e.target.checked);
+
+        // 5. Math Engine: Lattice Binding & Anchor Line
+        function calculateLatticeBinding(atoms, hexRadius, hexHeight, center) {
+            const oldResults = document.getElementById('binding-results');
+            if (oldResults) oldResults.remove();
+            
+            // Clear old anchor line
+            while(anchorGroup.children.length > 0) anchorGroup.remove(anchorGroup.children[0]);
+
+            let sulfurAtom = atoms.find(a => a.element === 'S');
+            if (!sulfurAtom) return;
+
+            // Use the centered & scaled position (same as render coordinates)
+            let targetPos = sulfurAtom.position.clone().sub(center).multiplyScalar(2.0);
+            let minDistance = Infinity; let nearestVertex = new THREE.Vector3();
+
+            const layers = 5; const gridCols = 10; const gridRows = 10;
+            for (let z = -Math.floor(layers/2); z <= Math.floor(layers/2); z++) {
+                const zOffset = z * hexRadius * 2;
+                for (let row = -gridRows; row <= gridRows; row++) {
+                    for (let col = -gridCols; col <= gridCols; col++) {
+                        const xOffset = col * hexRadius * 1.5;
+                        const yOffset = row * hexHeight + (Math.abs(col % 2) === 1 ? hexHeight / 2 : 0);
+                        for (let i = 0; i < 6; i++) {
+                            const angle = (i * Math.PI) / 3;
+                            const vertexPos = new THREE.Vector3(xOffset + hexRadius * Math.cos(angle), yOffset + hexRadius * Math.sin(angle), zOffset);
+                            const dist = targetPos.distanceTo(vertexPos);
+                            if (dist < minDistance) { minDistance = dist; nearestVertex.copy(vertexPos); }
+                        }
+                    }
+                }
+            }
+
+            // Draw the mathematical tether line (Red Laser)
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([targetPos, nearestVertex]);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+            const tetherLine = new THREE.Line(lineGeo, lineMat);
+            anchorGroup.add(tetherLine);
+
+            const resultsDiv = document.createElement('div');
+            resultsDiv.id = 'binding-results';
+            resultsDiv.style.marginTop = "20px"; resultsDiv.style.color = "#ffff00"; resultsDiv.style.fontWeight = "bold";
+            resultsDiv.innerHTML = `RESULTS: Y220C Mutation Binding<br>Nearest A2 Lattice Vertex: (${nearestVertex.x.toFixed(2)}, ${nearestVertex.y.toFixed(2)}, ${nearestVertex.z.toFixed(2)})<br>Binding Variance (Distance): ${minDistance.toFixed(4)} Å<br><span style="color:#ff0000; font-size: 0.8rem;">[Red Anchor Line Drawn]</span>`;
+            document.getElementById('ui-layer').appendChild(resultsDiv);
+        }
+
+        // 6. PDB Parsing
+        function parsePDB(pdbText) {
+            const lines = pdbText.split('\n'); const atoms = []; let center = new THREE.Vector3();
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.startsWith('ATOM') || line.startsWith('HETATM')) {
+                    const x = parseFloat(line.substring(30, 38)), y = parseFloat(line.substring(38, 46)), z = parseFloat(line.substring(46, 54));
+                    const element = line.substring(76, 78).trim().toUpperCase() || line.substring(12, 16).trim().charAt(0);
+                    if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                        const pos = new THREE.Vector3(x, y, z); atoms.push({ position: pos, element: element, id: atoms.length + 1 }); center.add(pos);
+                    }
+                }
+            }
+            if (atoms.length > 0) {
+                center.divideScalar(atoms.length); 
+                renderProtein(atoms, center);
+                document.getElementById('status').innerText = "Protein Loaded Successfully."; document.getElementById('status').style.color = "#00ff00";
+                document.getElementById('atom-count').innerText = `Atoms mapped: ${atoms.length}`;
+                calculateLatticeBinding(atoms, HEX_RADIUS, HEX_HEIGHT, center);
+            }
+        }
+
+        // 7. Render Protein (Atoms, Bonds, Labels)
+        function renderProtein(atoms, center) {
+            while(proteinGroup.children.length > 0) proteinGroup.remove(proteinGroup.children[0]);
+            const labelContainer = document.getElementById('label-container');
+            labelContainer.innerHTML = ''; atomLabelData = [];
+
+            // Atoms Instanced Mesh
+            const geometry = new THREE.SphereGeometry(1.0, 16, 16);
+            const colorMap = { 'C': new THREE.Color(0x00ffff), 'O': new THREE.Color(0xff00ff), 'N': new THREE.Color(0x0000ff), 'S': new THREE.Color(0xffff00), 'H': new THREE.Color(0x444444) };
+            const defaultColor = new THREE.Color(0xffffff);
+            const instancedMesh = new THREE.InstancedMesh(geometry, new THREE.MeshBasicMaterial(), atoms.length);
+            const dummy = new THREE.Object3D(); const colors = new Float32Array(atoms.length * 3);
+            const scaledPositions = [];
+
+            atoms.forEach((atom, i) => {
+                const scaledPos = atom.position.clone().sub(center).multiplyScalar(2.0);
+                scaledPositions.push(scaledPos);
+                dummy.position.copy(scaledPos); dummy.updateMatrix();
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+                const c = colorMap[atom.element] || defaultColor; c.toArray(colors, i * 3);
+
+                // Setup DOM Labels
+                const div = document.createElement('div');
+                div.className = 'atom-label'; div.innerText = atom.element + atom.id;
+                labelContainer.appendChild(div);
+                atomLabelData.push({ element: div, pos: scaledPos });
+            });
+            instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(colors, 3); 
+            proteinGroup.add(instancedMesh);
+
+            // Generate Covalent Bonds (Distance algorithm)
+            const bondMaterial = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.6 });
+            const bondPoints = [];
+            for(let i=0; i<atoms.length; i++) {
+                for(let j=i+1; j<atoms.length; j++) {
+                    let rawDist = atoms[i].position.distanceTo(atoms[j].position);
+                    if(rawDist > 0.4 && rawDist < 2.0) { // Standard covalent bond length
+                        bondPoints.push(scaledPositions[i], scaledPositions[j]);
+                    }
+                }
+            }
+            if(bondPoints.length > 0) {
+                const bondGeo = new THREE.BufferGeometry().setFromPoints(bondPoints);
+                const bonds = new THREE.LineSegments(bondGeo, bondMaterial);
+                bonds.visible = showBonds;
+                proteinGroup.add(bonds);
+            }
+        }
+
+        // 8. Drag/Drop
+        const dropZone = document.getElementById('drop-zone');
+        window.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('active'); });
+        window.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('active'); });
+        window.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('active');
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.pdb') || file.name.endsWith('.txt'))) {
+                document.getElementById('status').innerText = "Parsing geometry & bonds...";
+                const reader = new FileReader(); reader.onload = function(event) { parsePDB(event.target.result); }; reader.readAsText(file);
+            }
+        });
+
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); });
+        
+        // 9. Animation Loop & 3D-to-2D Label Projection
+        function animate() { 
+            requestAnimationFrame(animate); 
+            
+            if(autoRotate) {
+                masterGroup.rotation.y += 0.0015;
+                masterGroup.rotation.z += 0.0005;
+            }
+            
+            // Update HUD Labels
+            atomLabelData.forEach(label => {
+                if(!showLabels) { label.element.style.display = 'none'; return; }
+                
+                const tempV = label.pos.clone();
+                tempV.applyMatrix4(masterGroup.matrixWorld); // Account for rotation
+                tempV.project(camera);
+                
+                // Only show if in front of camera
+                if(tempV.z < 1) {
+                    label.element.style.display = 'block';
+                    const x = (tempV.x * .5 + .5) * window.innerWidth;
+                    const y = (tempV.y * -.5 + .5) * window.innerHeight;
+                    label.element.style.left = x + 'px';
+                    label.element.style.top = y + 'px';
+                } else {
+                    label.element.style.display = 'none';
+                }
+            });
+
+            controls.update(); composer.render(); 
+        }
+        animate();
+    </script>
+</body>
+</html>
